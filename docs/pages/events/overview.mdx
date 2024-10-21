@@ -1,0 +1,34 @@
+---
+
+title: atom - events property
+description: Learn about the events property of the atom.
+
+---
+
+# atom `events`
+
+The `events` property is an object containing functions that can be used to manipulate the state of the atom. There are three key events: `set`, `get`, and `use`. Each event is triggered at a different point in the lifecycle of the atom.
+
+## `use`
+
+A function that is called when the state of the atom changes. It is called with the new state of the atom as its argument.
+
+- **Required**: `false`
+- **Type**: `function`
+- **Default**: `undefined`
+
+## `set`
+
+A function that is called when the state of the atom is set. It is called with the new state of the atom as its argument.
+
+- **Required**: `false`
+- **Type**: `function`
+- **Default**: `undefined`
+
+## `get`
+
+A function that is called when the state of the atom is accessed. It is called with the current state of the atom as its argument.
+    
+- **Required**: `false`
+- **Type**: `function`
+- **Default**: `undefined`

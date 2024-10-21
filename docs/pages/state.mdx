@@ -1,0 +1,55 @@
+---
+
+title: atom - state property
+description: Learn about the state property of an atom.
+
+---
+
+# atom `state`
+
+`atoms` are typically created outside of React Components, and used within the context of a React component. It takes a configuration object as its argument, defining the `state`, `context` and `events` of the atom.
+
+## Using a `state` value
+
+The `state` property is required, as it is used to determine the initial state and type of the atom. The following code snippet demonstrates how to create an `atom`:
+
+```typescript copy
+const counterAtom = atom({
+  state: 10,
+});
+```
+
+## Using a `state` callback
+
+The `state` property can either be a value or a callback that returns a value. The callback takes the `context` as an argument, and the returned value is used as the initial state of the atom. The `context` property, if not defined, is an empty object. The following code snippet demonstrates how to use a `state` callback:
+
+```typescript copy
+const counterAtom = atom({
+  state: () => 10,
+});
+```
+
+### Passing a `function` as `state`
+
+If the state of the atom is supposed to be a function, the `state` property can be a function that returns a function. This is, however, not a common use case. The following code snippet demonstrates how to pass a function as `state`:
+
+```typescript copy
+const counterAtom = atom({
+  state: () => () => 10,
+});
+```
+
+### Passing `context` to a `state` callback
+
+The `context` property is an object defined on the atom, that is passed to the `state` callback. If the `context` property is not defined, it is an empty object.
+
+The following code snippet demonstrates how to pass `context` to a `state` callback:
+
+```typescript copy
+const counterAtom = atom({
+  state: (context) => context.initialValue,
+  context: {
+    initialValue: 10,
+  },
+});
+```

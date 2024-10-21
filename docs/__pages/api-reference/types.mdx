@@ -1,0 +1,76 @@
+---
+
+title: Types
+description: Types in the @ibnlanre/builder package.
+
+---
+
+## Types
+
+The `@ibnlanre/builder` package exports a set of types that are used to define the structure of the [builder][3] object. These types are used internally by the package and are not intended to be used directly by consumers.
+
+### `Base`
+
+The `Base` type represents a single key in the [builder][3] object created by the [createBuilder][2] function.
+
+#### Signature
+
+```typescript
+type Base<Field, Prefix extends readonly string[] = []> = {
+  $get: <Arguments extends unknown[]>(
+    ...args: Arguments
+  ) => [...Prefix, Field, ...Arguments];
+  $use: () => [...Prefix, Field];
+};
+```
+
+### `KeyBuilder`
+
+The `KeyBuilder` type represents the type of nested nodes in the structure of the [builder][3] object created by the [createBuilder][2] function. The type is a recursive structure that mirrors the structure of the [register][4] object.
+
+#### Signature
+
+```typescript
+type KeyBuilder<
+  Register extends Dictionary,
+  Prefix extends readonly string[] = [],
+> = {
+  [Field in keyof Register]: Register[Field] extends (
+    ...args: infer Arguments
+  ) => unknown
+    ? {
+        $get: <Variables extends any[]>(
+          ...args: Variables
+        ) => [...Prefix, Extract<Field, string>, ...Variables];
+        $use: (
+          ...args: Parameters<Register[Field]>
+        ) => [...Prefix, Extract<Field, string>, ...Arguments];
+      }
+    : Register[Field] extends Dictionary
+      ? Base<Field, Prefix> &
+          KeyBuilder<Register[Field], [...Prefix, Extract<Field, string>]>
+      : Base<Field, Prefix>;
+};
+```
+
+### `Builder`
+
+The `Builder` type represents the [builder][3] object created by the [createBuilder][2] function.
+
+#### Signature
+
+```typescript
+type Builder<
+  Register extends Dictionary,
+  Prefix extends readonly string[] = [],
+  Separator extends string = ".",
+> = {
+  $use: Register;
+  $get: Get<Register, Prefix, Separator>;
+} & KeyBuilder<Register, Prefix>;
+```
+
+[1]: /getting-started
+[2]: /core-concepts/create-builder
+[3]: /core-concepts/builder-object
+[4]: /core-concepts/registers

@@ -1,0 +1,45 @@
+---
+
+title: atom - events - get
+description: Learn how to use the get event of an atom.
+
+---
+
+# `.get`
+
+The `get` event is triggered when the state of the atom is accessed, within a React Component. This event can be used to modify the state of the atom before it is retrieved. The `get` function accepts a `params` object as its first argument and an arbitrary number of arguments as its second. The `params` object includes the following properties:
+
+- `value`: The state about to be retrieved.
+- `previous`: The current state of the atom.
+- `ctx`: The context of the atom.
+- `emit`: A function used to update the context of the atom.
+
+## Using the `get` event
+
+The arbitrary number of arguments are expected to be passed on the `use` hook, via its `getArgs` property. These arguments can be seen as dependencies of the `get` event. The following code snippet demonstrates how to use the `get` event, with dependencies:
+
+```typescript copy
+const counterAtom = atom({
+  state: 10,
+  events: {
+    get: ({ value }, increment: number, decrement: number) => {
+      return value + increment - decrement
+    },
+  },
+});
+```
+
+### Using the `getArgs` property
+
+In the above example, the `get` event is used to modify the state of the atom, before it is retrieved. The `get` event is passed two dependencies, `increment` and `decrement`, which are used to modify the state of the atom. 
+
+The `get` event is triggered when the state of the atom is retrieved, modifying the state of the atom before it is returned. Using the `getArgs` property of the `use` hook, we can pass the dependencies of the `get` event. 
+
+The `getArgs` property accepts an array of arguments, which are passed to the `get` event. The following code snippet demonstrates how to use the `getArgs` property:
+
+```typescript copy
+const [counter, setCounter] = counterAtom.use({
+//       ^? 18
+  getArgs: [10, 2]
+});
+```

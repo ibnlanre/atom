@@ -1,0 +1,129 @@
+---
+
+title: atom - events - use
+description: Learn how to use the use event of an atom.
+
+---
+
+# `.use`
+
+The `use` event is a wrapper around the `useEffect` hook. It is suitable for executing side effects, such as network requests, and WebSocket connections. The `use` event accepts the properties returned by the `atom` function as its first argument, and an arbitrary number of arguments as its second. 
+
+## Parameters
+
+The object of parameters includes the following properties:
+
+### State properties
+
+- `value`: The current state of the atom.
+- `subscribe`: A function used to subscribe to the state of the atom.
+- `publish`: A function used to update the state of the atom without triggering the `set` event.
+- `timeline`: An object that provides methods to navigate previous states of the atom.
+- `set`: A function used to update the state of the atom.
+
+### Context propeties
+
+- `ctx`: The context of the atom.
+- `provide`: A function used to subscribe to the context of the atom.
+- `emit`: A function used to update the context of the atom.
+
+### Garbage collection
+
+- `on`: An object containing functions for managing garbage collection.
+- `dispose`: A function used to trigger garbage collection.
+
+## Using the `use` event
+
+The `use` event is triggered as a result of an atom being used in a React Component. It is invoked when the component mounts, and when the arbitrary number of arguments passed on the `use` hook changes. This matters only if the `use` event has an arbitrary number of arguments. The following code snippet demonstrates how to use the `use` event:
+
+```typescript copy
+const contactsAtom = atom({
+  state: ["John Doe", "Jane Doe"],
+  events: {
+    set: ({ value }) => decrypt(value),
+    get: ({ value }) => {
+      return value.sort((a, b) => a.localeCompare(b));
+    },
+    use: ({ set }, search: string = "") => {
+      const abortController = new AbortController();
+
+      const url = new URL("http://example.com/contact");
+      if (search) url.searchParams.set("filter", search);
+      else url.searchParams.delete("filter");
+
+      fetch(url.toString(), {
+        signal: abortController.signal,
+      })
+        .then(response => response.json())
+        .then((value) => {
+          set(value.data);
+        })
+        .catch((error) => {
+          console.error('Error:', error.message);
+        });
+
+      return () => {
+        abortController.abort();
+      }
+    },
+  },
+});
+```
+
+### Using the `useArgs` property
+
+The arbitrary number of arguments are expected to be passed on the `use` hook, via its `useArgs` property. These arguments can be seen as dependencies of the `use` event. If the `enabled` property of the `use` hook is set to `false`, the `use` event will not triggered. It is however `true` by default. 
+
+The `useArgs` property is useful when the `use` event depends on the state of the component. It accepts an array of arguments, which are passed on the `use` hook. The following code snippet demonstrates how to use the `use` hook, with the `useArgs` property:
+
+```tsx copy
+const [search, setSearch] = useState("");
+const [data, setData] = contactsAtom.use({ useArgs: [search] });
+
+return (
+  <input onChange={(event) => setSearch(event.target.value)} />
+);
+```
+
+## Disposing the garbage
+
+Garbage collection is a mechanism for reclaiming memory that is no longer being used by an application. It is important to dispose the garbage, in order to prevent memory leaks. The `use` event provides two ways of disposing the garbage: using the `dispose` function, or using the `dispose` object. Additionally, the `on` object can be used to manage garbage collection.
+
+### Using the `dispose` function
+
+The `use` event returns a function that can be used for cleanup, in order words, dispose the garbage. The function is called only when the component `unmounts`. The following code snippet shows what that function looks like:
+
+```typescript copy
+return () => {
+  abortController.abort();
+}
+```
+
+### Using the `dispose` object
+
+An object containing functions for managing garbage collection, during `rerun` and `unmount` could also be returned, instead. This may be convenient when cleanups are required both during `rerun` and `unmount`. The following code shows what the object looks like:
+
+```typescript copy
+return {
+  rerun: () => {
+    abortController.abort();
+  },
+  unmount: () => {
+    abortController.abort();
+  },
+}
+```
+
+### Using the `on` object
+
+A final alternative would be to use the `on` object, which is made available within the `use` event. Consequently, it can be used within callbacks, and the `use` event itself. The following code snippet demonstrates how to use the `on` object:
+
+```typescript copy
+on.rerun(() => {
+  abortController.abort();
+});
+
+on.unmount(() => {
+  abortController.abort();
+});
+```

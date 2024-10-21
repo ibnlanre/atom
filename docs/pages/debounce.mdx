@@ -1,0 +1,32 @@
+---
+
+title: atom - debounce property
+description: Learn how to use the debouce property of an atom.
+
+---
+
+The `debounce` property of an atom allows you to debounce the `use` event of an atom. This is useful when you want to delay the execution of the `use` event until a certain amount of time has elapsed since the last time the `use` event was triggered.
+
+The property is an object with the following properties:
+
+- `delay`: The number of milliseconds to wait before triggering the `use` event.
+
+  - **Required**: `false`
+  - **Type**: `number`
+  - **Default**: `0`
+
+---
+
+- `leading`: A boolean value that determines if the `use` event should be triggered before the `delay` elapses.
+
+  - **Required**: `false`
+  - **Type**: `boolean`
+  - **Default**: `false`
+
+---
+
+- `trailing`: A boolean value that determines if the `use` event should be triggered after the `delay` elapses.
+
+  - **Required**: `false`
+  - **Type**: `boolean`
+  - **Default**: `true`

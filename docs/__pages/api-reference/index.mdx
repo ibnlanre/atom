@@ -1,0 +1,61 @@
+---
+
+title: Functions
+description: The functions in the @ibnlanre/builder package.
+
+---
+
+## Functions
+
+The `@ibnlanre/builder` package exports a set of functions and types for creating and manipulating the [builder][3] object. This page documents the public API of the package.
+
+### `createBuilder`
+
+The [createBuilder][2] function is used to create a [builder][3] object from a [register][4]. The function takes two arguments: a [register][4] object and an options object that includes a list of prefixes and the type of separator to use. It then returns a [builder][3] object.
+
+#### Signature
+
+```typescript
+function createBuilder<
+  Register extends Dictionary,
+  const Prefix extends string[] = [],
+  const Separator extends string = ".",
+>(
+  register: Register,
+  options?: {
+    prefixes?: Prefix;
+    separator?: Separator;
+  }
+): Builder<Register, Prefix, Separator>;
+```
+
+#### Parameters
+
+- `register` - The [register][4] object to create the [builder][3] object from.
+- `[options.prefixes]` - An optional array of prefixes to associate with the [builder][3] object.
+- `[options.separator]` - An optional string to use as a separator when joining the prefixes and keys.
+
+#### Returns
+
+A [builder][3] object with the keys and values of the [register][4] object.
+
+#### Example
+
+```typescript
+const register = {
+  location: (id: number) => `/location/${id}`,
+  address: {
+    country: 'Nigeria',
+  },
+};
+
+const builder = createBuilder(register, {
+  prefix: ["root", "node"],
+  separator: "/"
+});
+```
+
+[1]: /getting-started
+[2]: /core-concepts/create-builder
+[3]: /core-concepts/builder-object
+[4]: /core-concepts/registers

@@ -1,0 +1,39 @@
+---
+
+title: atom - events usage
+description: Learn how to use the events property of an atom.
+
+---
+
+# Using the `events` property
+
+The following code snippet demonstrates how to use the `events` property:
+
+- The state of the atom is retrieved from `localStorage`. This does not cause hydration problems because the state is calculated at the point of creating the atom. The returned value is set as the initial state of the atom.
+- The `set` event is triggered when the state of the atom is updated. It is used to persist the state of the atom in `localStorage`. The returned value is set as the new state of the atom.
+- The `get` event is triggered when the state of the atom is accessed, within a React Component. It is used to convert the state of the atom to a string. This conversion does not affect the state of the atom.
+- The `use` event is triggered when the atom is used within a React Component. It is called only once, when the component mounts. It is used to increment the state of the atom every second. It returns a function that is used to clear the interval, which would be called when the component unmounts.
+
+```typescript copy
+const counterAtom = atom({
+  state: () => {
+    const value = localStorage.getItem("counter");
+    if (value) return JSON.parse(value);
+    return 0;
+  },
+  events: {
+    set: ({ value }) => {
+      localStorage.setItem("counter", JSON.stringify(value));
+      return value;
+    },
+    get: ({ value }) => value.toString(),
+    use: ({ set }) => {
+      const interval = setInterval(() => {
+        set((prev) => prev + 1);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    },
+  },
+});
+```

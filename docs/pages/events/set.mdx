@@ -1,0 +1,71 @@
+---
+
+title: atom - events - set
+description: Learn how to use the set event of an atom.
+
+---
+
+# `.set`
+
+The `set` event is triggered when the state of the atom is about to be updated. This event can be used to modify the state of the atom before it is set or persist the state of the atom at the point of update. It expects a callback, which accepts a `params` object as its argument and returns a value. The returned value becomes the new state of the atom. The `params` object includes the following properties:
+
+- `value`: The state about to be set.
+- `previous`: The current state of the atom.
+- `ctx`: The context of the atom.
+- `emit`: A function used to update the context of the atom.
+
+## Using the `set` event
+
+The callback passed to the `set` event changes the value just before it is set as the new state of the atom. The following code snippet demonstrates how to use the `set` event:
+
+```typescript copy filename="to-capital-case.ts"
+const toCapitalCase = (value: string) => {
+  return value.split(" ").map((word) => {
+    return word.slice(0, 1).toUpperCase() + word.slice(1);
+  }).join(" ");
+};
+```
+
+```typescript copy filename="capitalize-atom.ts"
+const capitalizeAtom = atom({
+  state: "",
+  events: {
+    set: ({ value }) => toCapitalCase(value),
+  },
+});
+```
+
+The above code snippet capitalizes the first letter of each word in the string before it is set as the new state of the atom. The following code snippet demonstrates how to use the atom:
+
+```tsx copy filename="capitalize-input.tsx"
+const [name, setName] = capitalizeAtom.use();
+
+return (
+  <input value={name} onChange={(event) => {
+    setName(event.target.value);
+  }} />
+);
+```
+
+## Using the `select` property
+
+An alternative would be to use the `select` property of the `use` hook to achieve the same effect. This is recommended if only this component needs the value in the capitalized format. The following code snippet demonstrates how to use the `select` property: 
+
+```tsx copy
+const [name, setName] = capitalizeAtom.use({
+  select: (state) => toCapitalCase(state),
+})
+```
+
+## Introduction to the `get` event
+
+If in a situation where the value in the capitalized format is needed in multiple components, the recommended approach would be to use the `get` event. This would ensure that the value is always in the capitalized format when it is retrieved from the atom. The following code snippet demonstrates how to use the `get` event:
+
+```typescript copy
+const capitalizeAtom = atom({
+  state: "",
+  events: {
+    get: ({ value }) => toCapitalCase(value),
+  },
+});
+```

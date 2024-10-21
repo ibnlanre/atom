@@ -1,0 +1,110 @@
+---
+
+title: atom - context property
+description: Learn about the context property of an atom.
+
+---
+
+# atom `context`
+
+The `context` property is an object containing **reactive** states that do not influence the state of the atom. The `context` property is made available during instantiation and usage.
+
+## Using the `context` property
+
+The `publish` function is used in the following example to update the state of the atom, because the `set` event is not defined. Still, using the `set` function would have achieved the same result. The following code snippet demonstrates how to use the `context` property:
+
+```typescript copy
+const contactsAtom = atom({
+  state: ["John Doe", "Jane Doe"],
+  context: {
+    url: new URL("http://example.com/contact"),
+    isLoading: false,
+    isError: false,
+  },
+  events: {
+    use: ({ emit, publish, ctx: { url } }, search: string) => {
+      const abortController = new AbortController();
+      emit({ isLoading: true });
+
+      if (search) url.searchParams.set("filter", search);
+      else url.searchParams.delete("filter");
+
+      fetch(url.toString(), {
+        signal: abortController.signal,
+      })
+        .then(response => response.json())
+        .then((value) => {
+          publish(value.data);
+          emit({ isLoading: false });
+        })
+        .catch((error) => {
+          emit({ isError: true, isLoading: false });
+          console.error('Error:', error.message);
+        });
+
+      const cleanup = () => {
+        abortController.abort();
+        emit({ isError: false, isLoading: false });
+      }
+
+      return {
+        rerun: cleanup,
+        unmount: cleanup,
+      }
+    },
+  },
+});
+```
+
+## Leveraging `context` for storing references
+
+The need for the `context` property becomes more apparent when working with **websockets**, or for storing object references. Creating an `atom` returns an object with the same properties as the first argument passed to the `use` event callback, including two additional properties: the `get` and `use` callbacks passed during instantiation. This makes it suitable as a type for external functions, as the `weatherAtom`.
+
+The following code snippet demonstrates how to use the `context` property with **websockets**:
+
+```typescript copy
+type Weather = {
+  time: string,
+  temperature: number,
+  period: "morning" | "afternoon" | "evening",
+};
+
+function getWeather(atom: typeof weatherAtom, filter: Partial<Weather>) {
+  const { emit, publish, on } = atom;
+  const ws = new WebSocket("ws://example.com/users");
+
+  ws.onopen = (() => {
+    ws.send(JSON.stringify(filter));
+    emit({ ws });
+  });
+
+  ws.onmessage = ((value) => {
+    publish(JSON.parse(value.data));
+    emit({ isLoading: false });
+  });
+
+  ws.onerror = ((error) => {
+    emit({ isLoading: false, ws: null });
+    console.error('Error:', error);
+
+    if (ws.readyState === WebSocket.OPEN) ws.close();
+    getWeather(atom, filter);
+  });
+}
+
+const weatherAtom = atom({
+  state: [] as Array<Weather>,
+  context: {
+    ws: null as WebSocket | null,
+    isLoading: false,
+  },
+  events: {
+    use: ({ emit, ctx: { ws } }, filter: Partial<Weather>) => {
+      emit({ isLoading: true });
+
+      if (ws) ws.send(JSON.stringify(filter));
+      else getWeather(weatherAtom, filter);
+    },
+  },
+});
+```

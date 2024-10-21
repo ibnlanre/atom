@@ -1,0 +1,69 @@
+---
+
+title: atom - introduction
+description: atom is a standalone state container that can be accessed and modified from anywhere in a React application.
+
+---
+
+# `atom`
+
+atom is a standalone state container that can be accessed and modified from anywhere in your application. It uses the same underlying mechanism as the `portal` function for reactivity, but is designed to replicate the behavior of the `useEffect` hook outside of React Components. 
+
+## Importing the module
+
+The `atom` function is a named export of the `@ibnlanre/portal` library. It can be imported as shown below:
+
+```typescript copy
+import { atom } from '@ibnlanre/portal';
+```
+
+## Configuration object
+
+`atom` accepts a configuration object as its argument. The configuration object can have the following properties:
+
+### `state`
+
+The initial state of the atom. It can be a primitive value, an object, or an array. In order words, it can be any value.
+  
+- **Required**: `true`
+- **Type**: `any`
+
+### `events`
+
+An object containing functions that can be used to update the state of the atom. The functions are called events because they are triggered when the state of the atom changes.
+
+- **Required**: `false`
+- **Type**: `object`
+- **Default**: `{}`
+- **Properties**:
+  - `use`: A function that is called when the state of the atom changes.
+  - `set`: A function that is called when the state of the atom is set.
+  - `get`: A function that is called when the state of the atom is accessed.
+
+### `context`
+
+An object containing states that do not influence the state of the atom. The states are called context because they are made available during instantiation and usage.
+
+- **Required**: `false`
+- **Type**: `object`
+- **Default**: `{}`
+
+### `debug`
+
+A boolean value that determines if the atom should log its state to the console.
+
+- **Required**: `false`
+- **Type**: `boolean`
+- **Default**: `false`
+
+### `debounce`
+
+A set of options that determines the how the `use` event is triggered.
+
+- **Required**: `false`
+- **Type**: `object`
+- **Default**: `{}`
+- **Properties**:
+  - `delay`: The number of milliseconds to wait before triggering the `use` event.
+  - `leading`: A boolean value that determines if the `use` event should be triggered immediately.
+  - `trailing`: A boolean value that determines if the `use` event should be triggered after the `wait` period.
