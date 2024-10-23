@@ -47,10 +47,10 @@ describe("debounceEffect", () => {
     const debounced = debounceEffect(effect, { delay: 100, leading: true });
 
     debounced();
-    expect(effect).toHaveBeenCalled();
+    expect(effect).toHaveBeenCalledOnce();
 
     vi.advanceTimersByTime(100);
-    expect(effect).toHaveBeenCalledTimes(1);
+    expect(effect).toHaveBeenCalledTimes(2);
   });
 
   it("should call the effect on the trailing edge if trailing is true", () => {

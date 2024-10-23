@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { getComputedState } from ".";
 import { isFunction } from "../is-function";
 
-vi.mock("./is-set-state-function");
-const isFunctionMock = vi.mocked(isFunction);
+const isFunctionMock = vi.fn().mockImplementation(isFunction);
+
+afterAll(() => {
+  vi.resetAllMocks();
+});
 
 describe("getComputedState", () => {
   it("should return the initial state if it is not a function", () => {

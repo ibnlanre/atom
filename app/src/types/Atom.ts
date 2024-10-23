@@ -36,7 +36,7 @@ export interface Atom<
    * @template State The type of the state.
    * @template Context The type of context associated with the `atom`.
    */
-  use<Key extends string, Select = Data>(
+  use<const Key extends string = "value", Select = Data>(
     options?: AtomOptions<Key, State, UseArgs, GetArgs, Data, Select>
   ): AtomResult<Key, State, Context, Select>;
 }

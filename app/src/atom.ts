@@ -316,13 +316,13 @@ export function atom<
       setValueWithArgs(getComputedState(value, state));
     };
 
-    const dispatcher = Object.assign(setValue, ctx);
-    const result = Object.assign([value, dispatcher], ctx, {
+    const result = {
       [key]: value,
       [`set${key.charAt(0).toUpperCase() + key.slice(1)}`]: setValue,
-    });
+      [`${key}Ctx`]: ctx,
+    } as AtomResult<Key, State, Context, Select>;
 
-    return result as AtomResult<Key, State, Context, Select>;
+    return result;
   };
 
   /**
@@ -338,18 +338,3 @@ export function atom<
     use: useAtom,
   };
 }
-
-const x = atom({
-  state: 0,
-  events: {
-    set: ({ value, ctx }) => (ctx.id === "1" ? value : 0),
-    get: ({ value }, id?: string) => value,
-  },
-  context: {
-    id: "1",
-  },
-});
-
-x.use({
-  getArgs: [],
-});

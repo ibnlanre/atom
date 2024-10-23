@@ -1,5 +1,4 @@
 import type { SetStateAction } from "react";
-import type { Prettify } from "./Prettify";
 
 /**
  * Represents the state and dispatch of an `atom`.
@@ -11,16 +10,9 @@ import type { Prettify } from "./Prettify";
  *
  * @typedef {Array<Select, (value: SetStateAction<State>) => void>} UseAtomResult
  */
-export type AtomResult<Key extends string, State, Context, Select> = [
-  Select,
-  ((value: SetStateAction<State>) => void) & Context,
-] &
-  Prettify<
-    Context & {
-      [K in Key]: Select;
-    } & {
-      [K in Key as `set${Capitalize<Key>}`]: (
-        value: SetStateAction<State>
-      ) => void;
-    }
-  >;
+export type AtomResult<Key extends string, State, Context, Select> = Record<
+  Key,
+  Select
+> &
+  Record<`set${Capitalize<Key>}`, (value: SetStateAction<State>) => void> &
+  Record<`${Key}Ctx`, Context>;

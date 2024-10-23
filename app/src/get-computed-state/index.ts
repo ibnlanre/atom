@@ -1,5 +1,5 @@
-import { isFunction } from "@/is-function";
 import type { SetStateAction } from "react";
+import { isFunction } from "../is-function";
 
 /**
  * Gets the actual state value from the provided initial state.
