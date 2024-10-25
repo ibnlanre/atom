@@ -1,13 +1,34 @@
-import type { Subscription } from "./types/Subscription";
+import type { Subscription } from "../types/Subscription";
 
 /**
  * Represents a subject that maintains a current value and emits it to subscribers.
  * @template State The type of the initial and emitted values.
  */
 export class Particle<State> {
-  private state: State;
-  private subscribers: Set<Function>;
-  private currentIndex: number = 0;
+  /**
+   * The current value of the subject.
+   *
+   * @private
+   * @type {State}
+   */
+  #state: State;
+
+  /**
+   * The set of subscribers to the subject.
+   *
+   * @private
+   * @type {Set<Function>}
+   */
+  #subscribers: Set<Function>;
+
+  /**
+   * The current index of the state history for time-travel.
+   *
+   * @private
+   * @type {number}
+   * @default 0
+   */
+  #cursor: number = 0;
 
   /**
    * Determines whether to log the state history for debugging.
@@ -16,7 +37,7 @@ export class Particle<State> {
    * @private
    * @default false
    */
-  private debug: boolean = false;
+  #debug: boolean = false;
 
   /**
    * The history of state values for time-travel.
@@ -35,28 +56,17 @@ export class Particle<State> {
    * @param {State} initialValue The initial value of the subject.
    */
   constructor(initialValue: State, debug: boolean = false) {
-    /**
-     * The current value of the subject.
-     * @type {State}
-     */
-    this.state = initialValue;
-    /**
-     * The set of subscribers to the subject.
-     * @type {Set<Function>}
-     */
-    this.subscribers = new Set();
+    // Set the initial value of the subject
+    this.#state = initialValue;
+
+    // Initialize the subscribers set
+    this.#subscribers = new Set();
 
     if (debug) {
-      /**
-       * Whether to log the state history for debugging.
-       * @type {boolean}
-       */
-      this.debug = debug;
+      // Set the debug option to log state history
+      this.#debug = debug;
 
-      /**
-       * The history of state values for time-travel.
-       * @type {State[]}
-       */
+      // Initialize the history array with the initial value
       if (debug) this.history.push(initialValue);
     }
   }
@@ -66,7 +76,7 @@ export class Particle<State> {
    * @returns {State} The current value.
    */
   get value(): State {
-    return this.state;
+    return this.#state;
   }
 
   /**
@@ -74,8 +84,8 @@ export class Particle<State> {
    * @returns {boolean} `true` if an undo operation can be performed, `false` otherwise.
    */
   get canUndo(): boolean {
-    if (!this.debug) return false;
-    return this.currentIndex > 0;
+    if (!this.#debug) return false;
+    return this.#cursor > 0;
   }
 
   /**
@@ -83,8 +93,8 @@ export class Particle<State> {
    * @returns {boolean} `true` if a redo operation can be performed, `false` otherwise.
    */
   get canRedo(): boolean {
-    if (!this.debug) return false;
-    return this.currentIndex < this.history.length - 1;
+    if (!this.#debug) return false;
+    return this.#cursor < this.history.length - 1;
   }
 
   /**
@@ -94,20 +104,20 @@ export class Particle<State> {
    * @returns {State} The updated state value.
    */
   publish = (value: State): State => {
-    if (!Object.is(this.state, value)) {
+    if (!Object.is(this.#state, value)) {
       // Update the current state with the new value
-      this.state = value;
+      this.#state = value;
 
-      if (this.debug) {
+      if (this.#debug) {
         // Keep a history of state values for time-travel
         // Splice any future history beyond the current index
-        this.history.splice(this.currentIndex + 1);
+        this.history.splice(this.#cursor + 1);
 
         // Push the new state value into the history
         this.history.push(value);
 
         // Update the current index to point to the newly added state value
-        this.currentIndex = this.history.length - 1;
+        this.#cursor = this.history.length - 1;
       }
 
       // Notify subscribers about the state change
@@ -122,34 +132,34 @@ export class Particle<State> {
    * @returns {State | undefined} The next state, or undefined if there is no next state.
    */
   forward = (): State | undefined => {
-    if (!this.debug) return undefined;
+    if (!this.#debug) return undefined;
 
     // Calculate the index of the next state
-    const currentIndex = this.currentIndex + 1;
+    const cursor = this.#cursor + 1;
 
-    // If currentIndex is greater than or equal to the history length, return undefined
-    if (currentIndex >= this.history.length) return undefined;
+    // If cursor is greater than or equal to the history length, return undefined
+    if (cursor >= this.history.length) return undefined;
 
     // Retrieve the next state from history
-    return this.history[currentIndex];
+    return this.history[cursor];
   };
 
   /**
    * Retrieves the previous state from the history for time-travel.
    * @returns {State | undefined} The previous state, or undefined if there is no previous state.
    */
-  rewind = (): State | undefined => {
-    if (!this.debug) return undefined;
+  backward = (): State | undefined => {
+    if (!this.#debug) return undefined;
 
     // Calculate the index of the previous state
-    const currentIndex = this.currentIndex - 1;
+    const cursor = this.#cursor - 1;
 
-    // If currentIndex is 0, return the current state
-    if (!currentIndex) return this.state;
+    // If cursor is 0, return the current state
+    if (!cursor) return this.#state;
 
-    // If currentIndex is greater than 0, retrieve the previous state from history
-    if (currentIndex > 0) {
-      return this.history[currentIndex];
+    // If cursor is greater than 0, retrieve the previous state from history
+    if (cursor > 0) {
+      return this.history[cursor];
     }
 
     // If there is no previous state, return undefined
@@ -162,11 +172,11 @@ export class Particle<State> {
   undo = () => {
     // Check if there is a previous state to undo to
     if (this.canUndo) {
-      // Decrement the currentIndex to move to the previous state
-      this.currentIndex--;
+      // Decrement the cursor to move to the previous state
+      this.#cursor--;
 
       // Set the current state to the previous state from history
-      this.state = this.history[this.currentIndex] as State;
+      this.#state = this.history[this.#cursor] as State;
 
       // Notify subscribers that the state has changed
       this.notifySubscribers();
@@ -179,11 +189,11 @@ export class Particle<State> {
   redo = () => {
     // Check if there is a state to redo to
     if (this.canRedo) {
-      // Increment the currentIndex to move forward in history
-      this.currentIndex++;
+      // Increment the cursor to move forward in history
+      this.#cursor++;
 
       // Set the current state to the next state from history
-      this.state = this.history[this.currentIndex] as State;
+      this.#state = this.history[this.#cursor] as State;
 
       // Notify subscribers that the state has changed
       this.notifySubscribers();
@@ -206,11 +216,11 @@ export class Particle<State> {
     immediate: boolean = true
   ): Subscription => {
     // Check if the observer is not already subscribed
-    if (!this.subscribers.has(observer)) {
+    if (!this.#subscribers.has(observer)) {
       // Add the observer to the subscribers set
-      this.subscribers.add(observer);
+      this.#subscribers.add(observer);
       // notify the observer with the current state if immediate is true
-      if (immediate) observer(this.state);
+      if (immediate) observer(this.#state);
     }
 
     // Return an object with an unsubscribe function
@@ -219,7 +229,7 @@ export class Particle<State> {
        * Unsubscribes the observer from further updates.
        */
       unsubscribe: () => {
-        this.subscribers.delete(observer);
+        this.#subscribers.delete(observer);
       },
     };
   };
@@ -228,7 +238,7 @@ export class Particle<State> {
    * Unsubscribes all subscribers from the subject.
    */
   unsubscribe = (): void => {
-    this.subscribers.clear();
+    this.#subscribers.clear();
   };
 
   /**
@@ -238,10 +248,11 @@ export class Particle<State> {
    */
   protected notifySubscribers = () => {
     // Iterate through all subscribers and invoke their callbacks with the current state
-    this.subscribers.forEach((callback) => {
+    this.#subscribers.forEach((callback) => {
       try {
-        callback(this.state);
+        callback(this.#state);
       } catch (err) {
+        if (!this.#debug) return;
         // Catch and log any errors that occur in subscriber callbacks
         console.error("Error occurred in subscriber callback:", err);
       }

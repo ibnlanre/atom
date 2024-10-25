@@ -13,19 +13,17 @@ import type { DebounceOptions } from "./Debounce";
  *
  * @property {AtomState<State, Context>} state The initial state or a function to generate the initial state.
  * @property {boolean} [debug] A boolean indicating whether to log the state history for debugging.
- * @property {AtomEvents<State, Data, Context, UseArgs, GetArgs>} [events] An object containing functions to interact with the `atom`.
+ * @property {AtomEvents<State, Context, UseArgs, GetArgs, Data>} [events] An object containing functions to interact with the `atom`.
  * @property {Context} [context] Record of mutable context on the atom instance.
  * @property {DebounceOptions} [debounce] Options for debouncing the `use` function.
  *
  */
 export type AtomConfig<
   State,
+  Context extends Record<PropertyKey, unknown> = {},
+  UseArgs extends ReadonlyArray<unknown> = [],
+  GetArgs extends ReadonlyArray<unknown> = [],
   Data = State,
-  Context extends {
-    [key: string]: any;
-  } = {},
-  UseArgs extends ReadonlyArray<any> = [],
-  GetArgs extends ReadonlyArray<any> = [],
 > = {
   /**
    * The initial state or a function to generate the initial state.
@@ -38,7 +36,7 @@ export type AtomConfig<
   /**
    * An object containing functions to interact with the `atom`.
    */
-  events?: AtomEvents<State, Data, Context, UseArgs, GetArgs>;
+  events?: AtomEvents<State, Context, UseArgs, GetArgs, Data>;
   /**
    * Record of mutable context on the atom instance.
    */

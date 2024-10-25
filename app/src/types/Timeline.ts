@@ -16,7 +16,7 @@ type Timeline<State> = {
    *
    * @type {State | undefined} The previous state in the timeline, or undefined if not available.
    */
-  rewind: State | undefined;
+  backward: State | undefined;
   /**
    * Retrieves the next state in the timeline, if available.
    *

@@ -1,31 +1,39 @@
 function arraySort(a: any, b: any): number {
-  return JSON.stringify(a).localeCompare(JSON.stringify(b));
+  try {
+    const stringifiedA = JSON.stringify(a);
+    const stringifiedB = JSON.stringify(b);
+
+    const result = stringifiedA.localeCompare(stringifiedB);
+    return result;
+  } catch (e) {
+    return 0;
+  }
 }
 
 export function deepSort<T>(data: T): T {
   if (!data) return data;
   const visited = new Set<any>();
 
-  function sortHelper(obj: any): any {
-    if (visited.has(obj)) return obj;
-    visited.add(obj);
+  function sortHelper(value: any): any {
+    if (visited.has(value)) return value;
+    visited.add(value);
 
-    if (Array.isArray(obj)) {
-      return obj.map(sortHelper).sort(arraySort);
+    if (Array.isArray(value)) {
+      return value.map(sortHelper).sort(arraySort);
     }
 
-    if (typeof obj === "object" && obj !== null) {
+    if (typeof value === "object" && value !== null) {
       const sortedObject: any = {};
-      const sortedKeys = Object.keys(obj).sort();
+      const sortedKeys = Object.keys(value).sort();
 
       for (const key of sortedKeys) {
-        sortedObject[key] = sortHelper(obj[key]);
+        sortedObject[key] = sortHelper(value[key]);
       }
 
       return sortedObject;
     }
 
-    return obj;
+    return value;
   }
 
   return sortHelper(data) as T;

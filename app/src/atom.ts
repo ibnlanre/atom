@@ -47,7 +47,7 @@ export function atom<
   GetArgs extends ReadonlyArray<any>,
   Data = State,
 >(
-  config: AtomConfig<State, Data, Context, UseArgs, GetArgs>
+  config: AtomConfig<State, Context, UseArgs, GetArgs, Data>
 ): Atom<State, Context, UseArgs, GetArgs, Data> {
   const {
     state,
@@ -64,8 +64,6 @@ export function atom<
 
   const observable = new Particle(initialState, debug);
   const signal = new Particle(context);
-
-  const { forward, rewind, redo, undo, publish, subscribe } = observable;
 
   /**
    * Represents the functions to execute on specific `atom` events.
@@ -88,12 +86,12 @@ export function atom<
    */
   const on: Collector = {
     rerun: (fn?: () => void) => {
-      if (typeof fn === "function") {
+      if (isFunction(fn)) {
         collector.rerun.add(fn);
       }
     },
     unmount: (fn?: () => void) => {
-      if (typeof fn === "function") {
+      if (isFunction(fn)) {
         collector.unmount.add(fn);
       }
     },
@@ -106,8 +104,10 @@ export function atom<
    */
   const emit = (ctx: Partial<Context> | ((curr: Context) => Context)) => {
     const curr = signal.value;
-    if (typeof ctx === "function") signal.publish({ ...ctx(curr) });
+
+    if (isFunction<Context>(ctx)) signal.publish(ctx(curr));
     else signal.publish({ ...curr, ...ctx });
+
     return signal.value;
   };
 
@@ -119,8 +119,11 @@ export function atom<
   const trash = (cleanup: () => void) => {
     try {
       cleanup();
-    } catch (err) {
-      console.error("Error occured during cleanup", err);
+    } catch (error) {
+      if (debug) {
+        const message = "Error occured during cleanup";
+        console.error(message, error);
+      }
     }
   };
 
@@ -160,8 +163,8 @@ export function atom<
     };
 
     // The set function allows optional transformations and returns the new state.
-    if (set) publish(set(params));
-    else publish(resolvedValue);
+    if (set) observable.publish(set(params));
+    else observable.publish(resolvedValue);
   };
 
   /**
@@ -191,17 +194,17 @@ export function atom<
         return observable.history;
       },
       get forward() {
-        return forward();
+        return observable.forward();
       },
-      get rewind() {
-        return rewind();
+      get backward() {
+        return observable.backward();
       },
-      redo,
-      undo,
+      redo: observable.redo,
+      undo: observable.undo,
     },
     set: setValueWithArgs,
-    subscribe,
-    publish,
+    subscribe: observable.subscribe,
+    publish: observable.publish,
     emit,
     get ctx() {
       return signal.value;
@@ -297,7 +300,7 @@ export function atom<
     useSyncEffect(execute, useArgs, enabled);
     useEffect(() => {
       // Subscribe to state changes.
-      const subscriber = subscribe(setState);
+      const subscriber = observable.subscribe(setState);
 
       // Subscribe to context changes.
       const provider = provide(setCtx);
@@ -332,9 +335,5 @@ export function atom<
    * @property {Function} get A function to get the `atom`'s state.
    * @property {Function} use A hook to use the `atom` instance.
    */
-  return {
-    ...fields,
-    get: getValueWithArgs,
-    use: useAtom,
-  };
+  return Object.assign(fields, { get: getValueWithArgs, use: useAtom });
 }

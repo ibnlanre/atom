@@ -24,7 +24,7 @@ export type Fields<State, Context> = {
    *
    * @typedef {Object} Timeline
    * @property {Array<State>} history An array containing the history of state changes.
-   * @property {Function} rewind A function to access the previous value of the `atom`.
+   * @property {Function} backward A function to access the previous value of the `atom`.
    * @property {Function} forward A function to update the value of the `atom` instance.
    * @property {Function} redo A function to redo a previous state change.
    * @property {Function} undo A function to undo a previous state change.

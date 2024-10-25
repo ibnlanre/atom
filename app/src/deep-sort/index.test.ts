@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { deepSort } from "./index";
 
 describe("deepSort", () => {
@@ -45,5 +45,10 @@ describe("deepSort", () => {
     expect(deepSort(42)).toBe(42);
     expect(deepSort("string")).toBe("string");
     expect(deepSort(true)).toBe(true);
+  });
+
+  it("should not modify functions", () => {
+    const fn = vi.fn();
+    expect(deepSort(fn)).toBe(fn);
   });
 });

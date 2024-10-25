@@ -16,10 +16,10 @@ import type { Params } from "./Params";
  */
 export interface AtomEvents<
   State,
-  Data,
-  Context,
-  UseArgs extends ReadonlyArray<any>,
-  GetArgs extends ReadonlyArray<any>,
+  Context extends Record<PropertyKey, unknown> = {},
+  UseArgs extends ReadonlyArray<unknown> = [],
+  GetArgs extends ReadonlyArray<unknown> = [],
+  Data = State,
 > {
   /**
    * This function can be used to perform actions or validations before the state change occurs.
