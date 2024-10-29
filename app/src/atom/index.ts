@@ -1,18 +1,18 @@
 import { SetStateAction, useEffect, useState } from "react";
 
-import type { Atom } from "./types/Atom";
-import type { AtomConfig } from "./types/AtomConfig";
-import type { AtomOptions } from "./types/AtomOptions";
-import type { AtomResult } from "./types/AtomResult";
-import type { Collector } from "./types/Collector";
-import type { Fields } from "./types/Fields";
-import type { Params } from "./types/Params";
+import type { Atom } from "../types/Atom";
+import type { AtomConfig } from "../types/AtomConfig";
+import type { AtomOptions } from "../types/AtomOptions";
+import type { AtomResult } from "../types/AtomResult";
+import type { Collector } from "../types/Collector";
+import type { Fields } from "../types/Fields";
+import type { Params } from "../types/Params";
 
-import { debounceEffect } from "./debounce-effect";
-import { getComputedState } from "./get-computed-state";
-import { isFunction } from "./is-function";
-import { makeUseSyncEffect } from "./make-use-sync-effect";
-import { Particle } from "./particle";
+import { debounceEffect } from "../debounce-effect";
+import { getComputedState } from "../get-computed-state";
+import { isFunction } from "../is-function";
+import { makeUseSynchronizedEffect } from "../make-use-synchronized-effect";
+import { Particle } from "../particle";
 
 /**
  * @description Creates an `atom` instance for managing and updating state.
@@ -261,7 +261,7 @@ export function atom<
    * A hook to synchronize the execution of the `use` function.
    * @type {Function}
    */
-  const useSyncEffect = makeUseSyncEffect();
+  const useSynchronizedEffect = makeUseSynchronizedEffect();
 
   /**
    * A hook to use the `atom` instance.
@@ -297,7 +297,7 @@ export function atom<
       useValueWithArgs(...useArgs);
     }, debounce);
 
-    useSyncEffect(execute, useArgs, enabled);
+    useSynchronizedEffect(execute, useArgs, enabled);
     useEffect(() => {
       // Subscribe to state changes.
       const subscriber = observable.subscribe(setState);

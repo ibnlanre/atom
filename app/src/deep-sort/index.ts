@@ -1,16 +1,6 @@
-function arraySort(a: any, b: any): number {
-  try {
-    const stringifiedA = JSON.stringify(a);
-    const stringifiedB = JSON.stringify(b);
+import { arraySort } from "../array-sort";
 
-    const result = stringifiedA.localeCompare(stringifiedB);
-    return result;
-  } catch (e) {
-    return 0;
-  }
-}
-
-export function deepSort<T>(data: T): T {
+export function deepSort<T extends ReadonlyArray<unknown>>(data: T): T {
   if (!data) return data;
   const visited = new Set<any>();
 

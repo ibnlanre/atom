@@ -1,10 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { atom } from "./atom";
+import { atom } from ".";
 
-// Your test cases remain unchanged
 describe("atom", () => {
   it("should initialize with the given state", () => {
     const instance = atom({
@@ -50,36 +48,34 @@ describe("atom", () => {
     const rerun = vi.fn();
     const unmount = vi.fn();
 
-    const state = renderHook(() => useState(0));
+    let state = 0;
 
     const instance = atom({
       state: 0,
       events: {
-        use: ({}, state) => ({ rerun, unmount }),
+        use: (undefined, state) => ({ rerun, unmount }),
       },
     });
 
     const hook = renderHook(() =>
       instance.use({
-        key: "some",
-        useArgs: [state.result.current[0]],
+        useArgs: [state],
       })
     );
 
-    hook.rerender();
     expect(rerun).not.toHaveBeenCalled();
-
-    act(() => {
-      state.result.current[1](5);
-    });
-    hook.rerender();
-    expect(state.result.current[0]).toBe(5);
-
-    expect(rerun).toHaveBeenCalled();
     expect(unmount).not.toHaveBeenCalled();
 
+    act(() => {
+      state = 5;
+      hook.rerender();
+    });
+
+    expect(state).toBe(5);
+    expect(rerun).toHaveBeenCalled();
+
     hook.unmount();
-    expect(unmount).toHaveBeenCalled();
+    expect(unmount).toHaveBeenCalledOnce();
   });
 
   it("should update context using emit", () => {
