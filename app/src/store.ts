@@ -1,3 +1,5 @@
+import { SetStateAction, useEffect, useState } from "react";
+
 type Dictionary = {
   readonly [k: string]: unknown;
   readonly [k: number]: unknown;
@@ -98,90 +100,109 @@ function resolveSegment<State extends Dictionary, Keys extends Segments<State>>(
   return state as any;
 }
 
+function resolvePath<
+  State extends Dictionary,
+  Path extends Keys<State> = never
+>(state: State, path: Path): ResolvePath<State, Path> {
+  const segments = splitPath(path);
+  return resolveSegment(state, segments);
+}
+
 function splitPath<Path extends string>(path: Path) {
   return path.split(".") as Split<Path>;
 }
 
-function createStore<State extends Dictionary>(initialState: State) {
-  let state = initialState;
-
-  function get(path?: Keys<State>) {
-    if (path) {
-      const segments = splitPath(path);
-      return resolveSegment(state, segments);
-    }
-
-    return state;
-  }
-
-  function set(value: State): void;
-  function set<
-    Path extends Keys<State>,
-    Value extends ResolvePath<State, Path>
-  >(path: Path, value: Value): void;
-
-  function set(path, value?: any) {
-    if (isDictionary(state) && path) {
-      const segments = splitPath(path);
-
-      return Object.create(
-        Object.getPrototypeOf(state),
-        Object.getOwnPropertyDescriptors(state)
-      ) as State;
-    } else {
-      state = value;
-    }
-  }
-
-  return {
-    get,
-    set,
-    use(path) {
-      const value = this.get(path);
-      const setValue = (newValue) => this.set(path, newValue);
-      return [value, setValue];
-    },
-  };
+function replicateState<State extends Dictionary>(state: State) {
+  return Object.create(
+    Object.getPrototypeOf(state),
+    Object.getOwnPropertyDescriptors(state)
+  );
 }
 
-class Store<State extends Record<PropertyKey, any>> {
+function isSetStateAction<Value>(
+  value: SetStateAction<Value>
+): value is (prev: Value) => Value {
+  return typeof value === "function";
+}
+
+type Resolver<State extends Dictionary, Path extends Keys<State>> =
+  | State
+  | ResolvePath<State, Path>;
+
+function isResolvedPath<State extends Dictionary, Path extends Keys<State>>(
+  value: Resolver<State, Path>,
+  path?: Path
+): value is ResolvePath<State, Path> {
+  return path !== undefined;
+}
+
+class Store<State extends Dictionary> {
   private state: State;
 
-  constructor(state: State) {
-    this.state = state;
+  constructor(initialState: State) {
+    this.state = initialState;
   }
 
-  get = (path?: Keys<State>) => {
-    if (path) {
-      const segments = splitPath(path);
-      return resolveSegment(this.state, segments);
-    }
+  #setState = (value: State) => {
+    this.state = value;
+  };
 
+  #setProperty = <Path extends Keys<State>>(
+    value: ResolvePath<State, Path>,
+    path?: Path
+  ) => {
+    if (!path) return this.#setState(value);
+
+    const keys = splitPath(path);
+
+    const snapshot = replicateState(this.state);
+    const pivot = keys[keys.length - 1];
+    const segments = keys.slice(0, -1);
+
+    let current = snapshot;
+
+    for (const key of segments) current = current[key];
+    current[pivot] = value;
+
+    this.#setState(snapshot);
+  };
+
+  #createSetState = <Path extends Keys<State>>(path: Path) => {
+    return <Value extends ResolvePath<State, Path>>(
+      value: Value | ((prev: Value) => Value)
+    ) => {
+      const get = isSetStateAction(value) ? value : () => value;
+      const current = resolvePath(this.state, path);
+      this.#setProperty(get(current), path);
+    };
+  };
+
+  $get = <Path extends Keys<State>>(path?: Path) => {
+    if (path) return resolvePath(this.state, path);
     return this.state;
   };
 
-  set(value: State): void;
-  set<Path extends Keys<State>, Value extends ResolvePath<State, Path>>(
-    path: Path,
-    value: Value
-  ): void;
-  set(path: any, value?: any) {
-    if (isDictionary(this.state) && path) {
-      const segments = splitPath(path);
-      const last = segments.pop();
-      const parent = resolveSegment(this.state, segments);
-      parent[last] = value;
-    } else {
-      this.state = value;
-    }
-  }
+  $set = <Path extends Keys<State>>(path?: Path) => {
+    if (path) return this.#createSetState(path);
+    return this.#setState;
+  };
 
-  use(path?: Keys<State>) {
-    const value = this.get(path);
-    const setValue = (newValue: any) => this.set(path, newValue);
+  $use = <Path extends Keys<State>>(path?: Path) => {
+    const [value, setValue] = useState<Resolver<State, Path>>(() => {
+      if (!path) return this.state;
+      return resolvePath(this.state, path);
+    });
+
+    useEffect(() => {
+      if (isResolvedPath(value, path)) this.#setProperty(value, path);
+      else this.#setState(value);
+    }, [value]);
+
     return [value, setValue] as const;
-  }
+  };
 }
+
+function createStore<State extends Dictionary>(initialState: State) {}
 
 const store = createStore({
   location: {
@@ -195,11 +216,3 @@ const store = createStore({
     },
   },
 });
-
-const { get, set, use } = store;
-
-const address = store.get("location.address");
-const storeCopy = store.get();
-const [storeUse, setStoreUse] = store.use();
-const [state, setState] = store.use("location.state");
-store.set("location.state", "CA");
