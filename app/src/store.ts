@@ -125,7 +125,7 @@ function isResolvedPath<State extends Dictionary, Path extends Paths<State>>(
   value: StatePath<State, Path>,
   path?: Path
 ): value is ResolvePath<State, Path> {
-  return path !== undefined;
+  return isDictionary(value) && typeof path === "string";
 }
 
 type StateManager<State> = [State, Dispatch<SetStateAction<State>>];
@@ -143,6 +143,7 @@ interface CompositeStore<State extends Dictionary> {
   $set<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
     path: Path
   ): Dispatch<SetStateAction<Value>>;
+  $sub(subscriber: (value: State) => void): () => void;
   $sub<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
     subscriber: (value: Value) => void,
     path?: Path
@@ -269,6 +270,8 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     return [value, setValue] as any;
   }
 
+  function $sub(subscriber: (value: State) => void): () => void;
+
   function $sub<
     Path extends Paths<State>,
     Value extends ResolvePath<State, Path>
@@ -366,22 +369,11 @@ type State = {
   };
 };
 
-const basic = createStore(new Set<number>());
-
-const base = createStore(() => {
-  return {
-    hi: {
-      how: {
-        are: "you",
-      },
-    },
-  };
-});
-
-base.$get("hi.how.are");
+const basic = createStore(() => new Date().toISOString());
 
 const [basicValue, setBasicValue] = basic.$use();
-const basicSetValue = basic.$set();
+const getterBasicValue = basic.$get();
+const setterBasicValue = basic.$set();
 
 const composite = createStore({
   location: {
@@ -400,9 +392,18 @@ const composite = createStore({
   },
 });
 
-const [store, setStore] = composite.$use("location.address.street");
-const setValue = composite.$set("location.address.info.name");
-const value = composite.$get("location.address.info.name");
+const [store, setStore] = composite.$use();
+const [street, setStreet] = composite.$use("location.address.street");
+
+const setValue = composite.$set();
+const setStreetValue = composite.$set("location.address.street");
+
+const value = composite.$get();
+const streetValue = composite.$get("location.address.street");
+
 const unsubscribe = composite.$sub((value) => {
   console.log("Composite store changed");
-}, "location.address");
+});
+const unsubscribeStreet = composite.$sub((value) => {
+  console.log("Street changed");
+}, "location.address.street");
