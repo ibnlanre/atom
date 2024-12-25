@@ -369,8 +369,9 @@ type State = {
   };
 };
 
-const basic = createStore(() => new Date().toISOString());
+const state = createStore<State>(); // Primitive store: because the initial state is undefined
 
+const basic = createStore(() => new Date().toISOString());
 const [basicValue, setBasicValue] = basic.$use();
 const getterBasicValue = basic.$get();
 const setterBasicValue = basic.$set();
