@@ -117,16 +117,9 @@ function isSetStateActionFunction<Value>(
   return typeof value === "function";
 }
 
-type StatePath<State extends Dictionary, Path extends Paths<State> = never> =
+type StatePath<State extends Dictionary, Path extends Paths<State>> =
   | State
   | ResolvePath<State, Path>;
-
-function isResolvedPath<State extends Dictionary, Path extends Paths<State>>(
-  value: StatePath<State, Path>,
-  path?: Path
-): value is ResolvePath<State, Path> {
-  return isDictionary(value) && typeof path === "string";
-}
 
 type StateManager<State> = [State, Dispatch<SetStateAction<State>>];
 
@@ -146,7 +139,7 @@ interface CompositeStore<State extends Dictionary> {
   $sub(subscriber: (value: State) => void): () => void;
   $sub<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
     subscriber: (value: Value) => void,
-    path?: Path
+    path: Path
   ): () => void;
   $use(): StateManager<State>;
   $use<Path extends Paths<State>>(
@@ -167,13 +160,16 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
   const subscribers = new Map<string, Set<(value: any) => void>>();
 
-  function getActiveSubscribers(path: string = "") {
+  function getSubscribersByPath(path: string = "") {
     if (!subscribers.has(path)) subscribers.set(path, new Set());
     return subscribers.get(path)!;
   }
 
-  function notifySubscribers(value: unknown, path?: string) {
-    const subscribers = getActiveSubscribers(path);
+  function notifySubscribers<Value, Path extends string>(
+    value: Value,
+    path?: Path
+  ) {
+    const subscribers = getSubscribersByPath(path);
     subscribers.forEach((subscriber) => subscriber(value));
   }
 
@@ -182,7 +178,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
 
     if (!path) notifySubscribers(value);
     else {
-      const value = resolvePath<State, Path>(state, path);
+      const value = resolvePath(state, path);
       notifySubscribers(value, path);
     }
   }
@@ -206,36 +202,37 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     setState(snapshot);
   }
 
+  function createSetStatePathAction<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(path: Path) {
+    return (value: SetStateAction<Value>) => {
+      if (isSetStateActionFunction(value)) {
+        const current = resolvePath(state, path);
+        return setProperty(value(current), path);
+      }
+
+      setProperty(value as ResolvePath<State, Path>, path);
+    };
+  }
+
   function setStateAction(value: SetStateAction<State>) {
     if (isSetStateActionFunction<State>(value)) setState(value(state));
     else setState(value);
   }
 
-  function setStatePathAction<
-    Path extends Paths<State>,
-    Value extends ResolvePath<State, Path>
-  >(value: SetStateAction<Value>, path: Path) {
-    if (isSetStateActionFunction(value)) {
-      const current = resolvePath(state, path);
-      return setProperty(value(current), path);
-    }
-
-    setProperty(value as ResolvePath<State, Path>, path);
-  }
-
-  function $set(): Dispatch<SetStateAction<State>>;
+  function $set<Path extends Paths<State> = never>(
+    path?: Path
+  ): Dispatch<SetStateAction<State>>;
 
   function $set<
     Path extends Paths<State>,
     Value extends ResolvePath<State, Path>
   >(path: Path): Dispatch<SetStateAction<Value>>;
 
-  function $set<
-    Path extends Paths<State>,
-    Value extends ResolvePath<State, Path>
-  >(path?: Path) {
+  function $set<Path extends Paths<State>>(path?: Path) {
     if (!path) return setStateAction;
-    return (value: SetStateAction<Value>) => setStatePathAction(value, path);
+    return createSetStatePathAction(path);
   }
 
   function $get(): State;
@@ -246,15 +243,16 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
   >(path: Path): Value;
 
   function $get<Path extends Paths<State>>(path?: Path) {
-    if (path) return resolvePath<State, Path>(state, path);
+    if (path) return resolvePath(state, path);
     return state;
   }
 
   function $use(): StateManager<State>;
 
-  function $use<Path extends Paths<State>>(
-    path: Path
-  ): StateManager<ResolvePath<State, Path>>;
+  function $use<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(path: Path): StateManager<Value>;
 
   function $use<Path extends Paths<State>>(path?: Path) {
     const [value, setValue] = useState<StatePath<State, Path>>(() => {
@@ -262,23 +260,30 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
       return resolvePath(state, path);
     });
 
-    useEffect(() => {
-      if (isResolvedPath(value, path)) setProperty(value, path);
-      else setState(value);
-    }, [value]);
-
-    return [value, setValue] as any;
+    useEffect(() => $sub(setValue, path), []);
+    return [value, $set(path)];
   }
 
-  function $sub(subscriber: (value: State) => void): () => void;
+  function $sub<Path extends Paths<State> = never>(
+    subscriber: (value: State) => void,
+    path?: Path
+  ): () => void;
+
+  function $sub<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(subscriber: (value: Value) => void, path: Path): () => void;
 
   function $sub<
     Path extends Paths<State>,
     Value extends ResolvePath<State, Path>
   >(subscriber: (value: Value) => void, path?: Path) {
-    const subscribers = getActiveSubscribers(path);
+    const subscribers = getSubscribersByPath(path);
     subscribers.add(subscriber);
-    return () => subscribers.delete(subscriber);
+
+    return () => {
+      subscribers.delete(subscriber);
+    };
   }
 
   return {
@@ -317,13 +322,15 @@ function createPrimitiveStore<State>(initialState: State) {
 
   function $use(): StateManager<State> {
     const [value, setValue] = useState(state);
-    useEffect(() => setState(value), [value]);
-    return [value, setValue];
+    useEffect(() => $sub(setValue), []);
+    return [value, $set()];
   }
 
   function $sub(subscriber: (value: State) => void) {
     subscribers.add(subscriber);
-    return () => subscribers.delete(subscriber);
+    return () => {
+      subscribers.delete(subscriber);
+    };
   }
 
   return {
@@ -345,8 +352,18 @@ function createStore<State = undefined>(
 function createStore<State = undefined>(initialState?: State) {
   let state: State;
 
-  if (isFunction<State>(initialState)) state = initialState();
-  else state = initialState as State;
+  try {
+    if (isFunction<State>(initialState)) state = initialState();
+    else state = initialState as State;
+  } catch (exception: unknown) {
+    const message = "The initial state function threw an error.";
+    const warning = "The store will be initialized with undefined.";
+
+    console.warn(message, warning);
+    console.error(exception);
+
+    state = undefined as State;
+  }
 
   if (isDictionary(state)) return createCompositeStore(state);
   return createPrimitiveStore(state);
