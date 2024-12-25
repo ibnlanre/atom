@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Dictionary = {
   readonly [k: string]: unknown;
@@ -136,6 +136,16 @@ function isResolvedPath<State extends Dictionary, Path extends Keys<State>>(
   return path !== undefined;
 }
 
+type SetStateAction<Value> = Value | ((prev: Value) => Value);
+
+type SetStatePathAction<
+  State extends Dictionary,
+  Path extends Paths<State>,
+  Value extends ResolvePath<State, Path>
+> = Value | ((prev: Value) => Value);
+
+type Dispatch<T> = (value: T) => void;
+
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
 
@@ -202,8 +212,11 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
   ) => void;
 
   function $set<Path extends Keys<State>>(path?: Path) {
-    if (path) return (value: any) => setStateAction(value, path);
-    return (value: any) => setStateAction(value);
+    if (!path) return (value: State) => setStateAction(value);
+
+    return <Value extends ResolvePath<State, Path>>(
+      value: Value | ((prev: Value) => Value)
+    ) => setStateAction(value, path);
   }
 
   function $use<
@@ -239,28 +252,21 @@ function createBasicStore<State>(initialState: State) {
     state = value;
   }
 
-  function $get() {
-    return state;
-  }
-
-  function $set() {
-    return setState;
-  }
-
-  function $use() {
+  function $use(): [State, Dispatch<SetStateAction<State>>] {
     const [value, setValue] = useState(state);
 
-    useEffect(() => {
-      setState(value);
-    }, [value]);
-
-    return [value, setValue] as const;
+    useEffect(() => setState(value), [value]);
+    return [value, setValue];
   }
 
   return {
-    $get,
-    $set,
     $use,
+    $get() {
+      return state;
+    },
+    $set() {
+      return setState;
+    },
   };
 }
 
