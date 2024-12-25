@@ -104,7 +104,7 @@ function splitPath<Path extends string>(path: Path): Split<Path> {
   return path.split(".") as Split<Path>;
 }
 
-function replicateState<State extends Dictionary>(state: State) {
+function createSnapshot<State extends Dictionary>(state: State) {
   return Object.create(
     Object.getPrototypeOf(state),
     Object.getOwnPropertyDescriptors(state)
@@ -134,13 +134,13 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
   const subscribers = new Map<string, Set<(value: any) => void>>();
 
-  function getSubscriptionList(path: string = "") {
+  function getActiveSubscribers(path: string = "") {
     if (!subscribers.has(path)) subscribers.set(path, new Set());
     return subscribers.get(path)!;
   }
 
-  function notifySubscribers<T>(value: T, path?: string) {
-    const subscribers = getSubscriptionList(path);
+  function notifySubscribers(value: unknown, path?: string) {
+    const subscribers = getActiveSubscribers(path);
     subscribers.forEach((subscriber) => subscriber(value));
   }
 
@@ -161,7 +161,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     if (!path) return setState(value);
 
     const keys = splitPath(path);
-    const snapshot = replicateState(state);
+    const snapshot = createSnapshot(state);
     const pivot = keys[keys.length - 1];
     const segments = keys.slice(0, -1);
 
@@ -241,7 +241,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     Path extends Paths<State>,
     Value extends ResolvePath<State, Path>
   >(subscriber: (value: Value) => void, path?: Path) {
-    const subscribers = getSubscriptionList(path);
+    const subscribers = getActiveSubscribers(path);
     subscribers.add(subscriber);
     return () => subscribers.delete(subscriber);
   }
@@ -254,7 +254,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
   };
 }
 
-function createStore<State>(initialState: State) {
+function createPrimitiveStore<State>(initialState: State) {
   let state = initialState;
   const subscribers = new Set<(value: State) => void>();
 
@@ -299,15 +299,32 @@ function createStore<State>(initialState: State) {
   };
 }
 
-const composite = createCompositeStore({
+type State = {
   location: {
-    state: "NY",
-    country: "USA",
+    state: string;
+    country: string;
+    address: {
+      street: string;
+      city: string;
+      zip: string;
+      phone: string;
+      info: {
+        name: string;
+        age: number;
+      };
+    };
+  };
+};
+
+const composite = createStore({
+  location: {
+    state: "CA",
+    country: "US",
     address: {
       street: "123 Main St",
-      city: "New York",
-      zip: "10001",
-      phone: "555-1234",
+      city: "San Francisco",
+      zip: "94105",
+      phone: "415-555-1234",
       info: {
         name: "John Doe",
         age: 30,
@@ -321,6 +338,19 @@ const basic = createStore(0);
 const [basicValue, setBasicValue] = basic.$use();
 const basicSetValue = basic.$set();
 
-const [store, setStore] = composite.$use();
-const setValue = composite.$set();
-const value = composite.$get();
+const [store, setStore] = composite.$use("location.address.street");
+const setValue = composite.$set("location.address.info.name");
+const value = composite.$get("location.address.info.name");
+
+function createStore<State extends Dictionary>(
+  state: State
+): ReturnType<typeof createCompositeStore<State>>;
+
+function createStore<State>(
+  state: State
+): ReturnType<typeof createPrimitiveStore<State>>;
+
+function createStore<State = undefined>(state?: State) {
+  if (isDictionary(state)) return createCompositeStore(state);
+  return createPrimitiveStore(state);
+}
