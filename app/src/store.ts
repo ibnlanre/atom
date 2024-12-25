@@ -134,6 +134,34 @@ function isFunction<State>(value: unknown): value is () => State {
   return typeof value === "function";
 }
 
+interface CompositeStore<State extends Dictionary> {
+  $get(): State;
+  $get<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
+    path: Path
+  ): Value;
+  $set(): Dispatch<SetStateAction<State>>;
+  $set<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
+    path: Path
+  ): Dispatch<SetStateAction<Value>>;
+  $sub<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
+    subscriber: (value: Value) => void,
+    path?: Path
+  ): () => void;
+  $use(): StateManager<State>;
+  $use<Path extends Paths<State>>(
+    path?: Path
+  ): StateManager<ResolvePath<State, Path>>;
+}
+
+interface PrimitiveStore<State> {
+  $get(): State;
+  $set(): Dispatch<SetStateAction<State>>;
+  $use(): StateManager<State>;
+  $sub(subscriber: (value: State) => void): () => void;
+}
+
+type Factory<State> = State | (() => State);
+
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
   const subscribers = new Map<string, Set<(value: any) => void>>();
@@ -304,12 +332,12 @@ function createPrimitiveStore<State>(initialState: State) {
 }
 
 function createStore<State extends Dictionary>(
-  state: State | (() => State)
-): ReturnType<typeof createCompositeStore<State>>;
+  state: Factory<State>
+): CompositeStore<State>;
 
-function createStore<State>(
-  state: State | (() => State)
-): ReturnType<typeof createPrimitiveStore<State>>;
+function createStore<State = undefined>(
+  state?: Factory<State>
+): PrimitiveStore<State>;
 
 function createStore<State = undefined>(initialState?: State) {
   let state: State;
@@ -338,6 +366,23 @@ type State = {
   };
 };
 
+const basic = createStore(new Set<number>());
+
+const base = createStore(() => {
+  return {
+    hi: {
+      how: {
+        are: "you",
+      },
+    },
+  };
+});
+
+base.$get("hi.how.are");
+
+const [basicValue, setBasicValue] = basic.$use();
+const basicSetValue = basic.$set();
+
 const composite = createStore({
   location: {
     state: "CA",
@@ -355,23 +400,9 @@ const composite = createStore({
   },
 });
 
-const basic = createStore(0);
-
-const base = createStore(() => {
-  return {
-    hi: {
-      how: {
-        are: "you",
-      },
-    },
-  };
-});
-
-base.$get("hi.how.are");
-
-const [basicValue, setBasicValue] = basic.$use();
-const basicSetValue = basic.$set();
-
 const [store, setStore] = composite.$use("location.address.street");
 const setValue = composite.$set("location.address.info.name");
 const value = composite.$get("location.address.info.name");
+const unsubscribe = composite.$sub((value) => {
+  console.log("Composite store changed");
+}, "location.address");
