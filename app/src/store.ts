@@ -42,8 +42,6 @@ type Paths<
     }[keyof Register]
   : never;
 
-type Keys<T extends unknown> = T extends Dictionary ? Paths<T> : never;
-
 type Segments<T extends Dictionary> = Split<Paths<T>>;
 
 type ResolveSegment<T extends Dictionary, K extends Segments<T>> = K extends [
@@ -82,7 +80,7 @@ type Split<
  *
  * @returns A boolean indicating whether the value is a dictionary.
  */
-function isDictionary(value: any): value is Dictionary {
+function isDictionary(value: unknown): value is Dictionary {
   return typeof value === "object" && value !== null;
 }
 
@@ -90,8 +88,8 @@ function resolveSegment<State extends Dictionary, Keys extends Segments<State>>(
   state: State,
   keys: Keys
 ): ResolveSegment<State, Keys> {
-  for (const key of keys) state = state[key] as any;
-  return state as any;
+  for (const key of keys) state = state[key] as State;
+  return state as ResolveSegment<State, Keys>;
 }
 
 function resolvePath<
@@ -102,7 +100,7 @@ function resolvePath<
   return resolveSegment(state, segments);
 }
 
-function splitPath<Path extends string>(path: Path) {
+function splitPath<Path extends string>(path: Path): Split<Path> {
   return path.split(".") as Split<Path>;
 }
 
@@ -113,22 +111,24 @@ function replicateState<State extends Dictionary>(state: State) {
   );
 }
 
-function isSetStateAction<Value, Action extends (prev: Value) => Value>(
-  value: Action
-): value is Action {
+function isSetStateActionFunction<Value>(
+  value: unknown
+): value is (prev: Value) => Value {
   return typeof value === "function";
 }
 
-type Resolver<State extends Dictionary, Path extends Keys<State>> =
+type StatePath<State extends Dictionary, Path extends Paths<State> = never> =
   | State
   | ResolvePath<State, Path>;
 
-function isResolvedPath<State extends Dictionary, Path extends Keys<State>>(
-  value: Resolver<State, Path>,
+function isResolvedPath<State extends Dictionary, Path extends Paths<State>>(
+  value: StatePath<State, Path>,
   path?: Path
 ): value is ResolvePath<State, Path> {
   return path !== undefined;
 }
+
+type StateManager<State> = [State, Dispatch<SetStateAction<State>>];
 
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
@@ -137,10 +137,10 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     state = value;
   }
 
-  function setProperty<Path extends Paths<State>>(
-    value: ResolvePath<State, Path>,
-    path?: Path
-  ) {
+  function setProperty<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(value: Value, path?: Path) {
     if (!path) return setState(value);
 
     const keys = splitPath(path);
@@ -156,34 +156,21 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     setState(snapshot);
   }
 
-  function setStateAction<Value extends State>(value: Value): void;
-
-  function setStateAction<
-    Value extends ResolvePath<State, Path>,
-    Path extends Paths<State>
-  >(value: Value, path: Path): void;
-
-  function setStateAction<Value>(value: (prev: Value) => Value): void;
-
-  function setStateAction<
-    Value extends ResolvePath<State, Path>,
-    Path extends Paths<State>
-  >(value: (prev: Value) => Value, path: Path): void;
-
-  function setStateAction<Path extends Paths<State>>(value: any, path?: Path) {
-    if (path) {
-      const current = resolvePath(state, path);
-      if (isSetStateAction(value)) setProperty(value(current), path);
-      return setProperty(value, path);
-    }
-
-    if (isSetStateAction(value)) return setState(value(state));
-    return setState(value);
+  function setStateAction(value: SetStateAction<State>) {
+    if (isSetStateActionFunction<State>(value)) setState(value(state));
+    else setState(value);
   }
 
-  function $get<Path extends Paths<State>>(path?: Path) {
-    if (path) return resolvePath(state, path);
-    return state;
+  function setStatePathAction<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(value: SetStateAction<Value>, path: Path) {
+    if (isSetStateActionFunction(value)) {
+      const current = resolvePath(state, path);
+      return setProperty(value(current), path);
+    }
+
+    setProperty(value as ResolvePath<State, Path>, path);
   }
 
   function $set(): Dispatch<SetStateAction<State>>;
@@ -198,16 +185,29 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     Value extends ResolvePath<State, Path>
   >(path?: Path) {
     if (!path) return (value: State) => setStateAction(value);
-    return (value: SetStateAction<Value>) => setStateAction(value, path);
+    return (value: SetStateAction<Value>) => setStatePathAction(value, path);
   }
 
-  function $use<
-    Path extends Keys<State>,
-    Value extends ResolvePath<State, Path>
-  >(path: Path): [Value, Dispatch<SetStateAction<Value>>];
+  function $get(): State;
 
-  function $use<Path extends Keys<State>>(path?: Path) {
-    const [value, setValue] = useState<Resolver<State, Path>>(() => {
+  function $get<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(path: Path): Value;
+
+  function $get<Path extends Paths<State>>(path?: Path) {
+    if (path) return resolvePath<State, Path>(state, path);
+    return state;
+  }
+
+  function $use(): StateManager<State>;
+
+  function $use<Path extends Paths<State>>(
+    path: Path
+  ): StateManager<ResolvePath<State, Path>>;
+
+  function $use<Path extends Paths<State>>(path?: Path) {
+    const [value, setValue] = useState<StatePath<State, Path>>(() => {
       if (!path) return state;
       return resolvePath(state, path);
     });
@@ -217,7 +217,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
       else setState(value);
     }, [value]);
 
-    return [value, setValue];
+    return [value, setValue] as any;
   }
 
   return {
@@ -234,7 +234,7 @@ function createBasicStore<State>(initialState: State) {
     state = value;
   }
 
-  function $use(): [State, Dispatch<SetStateAction<State>>] {
+  function $use(): StateManager<State> {
     const [value, setValue] = useState(state);
 
     useEffect(() => setState(value), [value]);
@@ -278,5 +278,6 @@ const store = createStore({
   },
 });
 
-const [location, setLocation] = store.$use("location.address.info.age");
-const setValue = store.$set("location.address.info.name");
+const [location, setLocation] = store.$use("location.address.info.name");
+const setValue = store.$set("location.state");
+const value = store.$get("location.address.info.name");
