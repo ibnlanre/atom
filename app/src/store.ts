@@ -132,9 +132,26 @@ type StateManager<State> = [State, Dispatch<SetStateAction<State>>];
 
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
+  const subscribers = new Map<string, Set<(value: any) => void>>();
 
-  function setState(value: State) {
+  function getSubscriptionList(path: string = "") {
+    if (!subscribers.has(path)) subscribers.set(path, new Set());
+    return subscribers.get(path)!;
+  }
+
+  function notifySubscribers<T>(value: T, path?: string) {
+    const subscribers = getSubscriptionList(path);
+    subscribers.forEach((subscriber) => subscriber(value));
+  }
+
+  function setState<Path extends Paths<State>>(value: State, path?: Path) {
     state = value;
+
+    if (!path) notifySubscribers(value);
+    else {
+      const value = resolvePath<State, Path>(state, path);
+      notifySubscribers(value, path);
+    }
   }
 
   function setProperty<
@@ -184,7 +201,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     Path extends Paths<State>,
     Value extends ResolvePath<State, Path>
   >(path?: Path) {
-    if (!path) return (value: State) => setStateAction(value);
+    if (!path) return setStateAction;
     return (value: SetStateAction<Value>) => setStatePathAction(value, path);
   }
 
@@ -220,48 +237,69 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     return [value, setValue] as any;
   }
 
+  function $sub<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(subscriber: (value: Value) => void, path?: Path) {
+    const subscribers = getSubscriptionList(path);
+    subscribers.add(subscriber);
+    return () => subscribers.delete(subscriber);
+  }
+
   return {
     $get,
     $set,
+    $sub,
     $use,
   };
 }
 
-function createBasicStore<State>(initialState: State) {
+function createStore<State>(initialState: State) {
   let state = initialState;
+  const subscribers = new Set<(value: State) => void>();
 
   function setState(value: State) {
     state = value;
+    notifySubscribers(value);
+  }
+
+  function setStateAction(value: SetStateAction<State>) {
+    if (isSetStateActionFunction<State>(value)) setState(value(state));
+    else setState(value);
+  }
+
+  function notifySubscribers(value: State) {
+    subscribers.forEach((subscriber) => subscriber(value));
+  }
+
+  function $get() {
+    return state;
+  }
+
+  function $set() {
+    return setStateAction;
   }
 
   function $use(): StateManager<State> {
     const [value, setValue] = useState(state);
-
     useEffect(() => setState(value), [value]);
     return [value, setValue];
   }
 
+  function $sub(subscriber: (value: State) => void) {
+    subscribers.add(subscriber);
+    return () => subscribers.delete(subscriber);
+  }
+
   return {
+    $get,
+    $set,
+    $sub,
     $use,
-    $get() {
-      return state;
-    },
-    $set() {
-      return setState;
-    },
   };
 }
 
-function createStore<State extends Dictionary>(
-  initialState: State
-): ReturnType<typeof createCompositeStore<State>>;
-
-function createStore<State>(initialState: State) {
-  if (isDictionary(initialState)) return createCompositeStore(initialState);
-  return createBasicStore(initialState);
-}
-
-const store = createStore({
+const composite = createCompositeStore({
   location: {
     state: "NY",
     country: "USA",
@@ -269,7 +307,7 @@ const store = createStore({
       street: "123 Main St",
       city: "New York",
       zip: "10001",
-      phone: "555-1234", // Added phone property
+      phone: "555-1234",
       info: {
         name: "John Doe",
         age: 30,
@@ -278,6 +316,11 @@ const store = createStore({
   },
 });
 
-const [location, setLocation] = store.$use("location.address.info.name");
-const setValue = store.$set("location.state");
-const value = store.$get("location.address.info.name");
+const basic = createStore(0);
+
+const [basicValue, setBasicValue] = basic.$use();
+const basicSetValue = basic.$set();
+
+const [store, setStore] = composite.$use();
+const setValue = composite.$set();
+const value = composite.$get();
