@@ -68,7 +68,7 @@ export class Socket<Get = unknown, Post = never> {
   #log: WebSocketEvent[];
   #retry: boolean;
   #retryDelay: number;
-  #timerId: Timer | null = null;
+  #timerId: NodeJS.Timeout | null = null;
 
   constructor({
     log = ["open", "close", "error"],
