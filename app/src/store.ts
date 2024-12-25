@@ -130,6 +130,10 @@ function isResolvedPath<State extends Dictionary, Path extends Paths<State>>(
 
 type StateManager<State> = [State, Dispatch<SetStateAction<State>>];
 
+function isFunction<State>(value: unknown): value is () => State {
+  return typeof value === "function";
+}
+
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
   const subscribers = new Map<string, Set<(value: any) => void>>();
@@ -299,6 +303,24 @@ function createPrimitiveStore<State>(initialState: State) {
   };
 }
 
+function createStore<State extends Dictionary>(
+  state: State | (() => State)
+): ReturnType<typeof createCompositeStore<State>>;
+
+function createStore<State>(
+  state: State | (() => State)
+): ReturnType<typeof createPrimitiveStore<State>>;
+
+function createStore<State = undefined>(initialState?: State) {
+  let state: State;
+
+  if (isFunction<State>(initialState)) state = initialState();
+  else state = initialState as State;
+
+  if (isDictionary(state)) return createCompositeStore(state);
+  return createPrimitiveStore(state);
+}
+
 type State = {
   location: {
     state: string;
@@ -335,22 +357,21 @@ const composite = createStore({
 
 const basic = createStore(0);
 
+const base = createStore(() => {
+  return {
+    hi: {
+      how: {
+        are: "you",
+      },
+    },
+  };
+});
+
+base.$get("hi.how.are");
+
 const [basicValue, setBasicValue] = basic.$use();
 const basicSetValue = basic.$set();
 
 const [store, setStore] = composite.$use("location.address.street");
 const setValue = composite.$set("location.address.info.name");
 const value = composite.$get("location.address.info.name");
-
-function createStore<State extends Dictionary>(
-  state: State
-): ReturnType<typeof createCompositeStore<State>>;
-
-function createStore<State>(
-  state: State
-): ReturnType<typeof createPrimitiveStore<State>>;
-
-function createStore<State = undefined>(state?: State) {
-  if (isDictionary(state)) return createCompositeStore(state);
-  return createPrimitiveStore(state);
-}
