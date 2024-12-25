@@ -121,9 +121,15 @@ type StatePath<State extends Dictionary, Path extends Paths<State>> =
   | State
   | ResolvePath<State, Path>;
 
-type StateManager<State> = [State, Dispatch<SetStateAction<State>>];
+type StateManager<State> = [
+  state: State,
+  dispatcher: Dispatch<SetStateAction<State>>
+];
 
-function isFunction<State>(value: unknown): value is () => State {
+type Subscriber<State> = (value: State) => void;
+type Initializer<State> = () => State;
+
+function isFunction<State>(value: unknown): value is Initializer<State> {
   return typeof value === "function";
 }
 
@@ -136,7 +142,7 @@ interface CompositeStore<State extends Dictionary> {
   $set<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
     path: Path
   ): Dispatch<SetStateAction<Value>>;
-  $sub(subscriber: (value: State) => void): () => void;
+  $sub(subscriber: Subscriber<State>): () => void;
   $sub<Path extends Paths<State>, Value extends ResolvePath<State, Path>>(
     subscriber: (value: Value) => void,
     path: Path
@@ -151,10 +157,10 @@ interface PrimitiveStore<State> {
   $get(): State;
   $set(): Dispatch<SetStateAction<State>>;
   $use(): StateManager<State>;
-  $sub(subscriber: (value: State) => void): () => void;
+  $sub(subscriber: Subscriber<State>): () => void;
 }
 
-type Factory<State> = State | (() => State);
+type Factory<State> = State | Initializer<State>;
 
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
@@ -265,7 +271,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
   }
 
   function $sub<Path extends Paths<State> = never>(
-    subscriber: (value: State) => void,
+    subscriber: Subscriber<State>,
     path?: Path
   ): () => void;
 
@@ -296,7 +302,7 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
 
 function createPrimitiveStore<State>(initialState: State) {
   let state = initialState;
-  const subscribers = new Set<(value: State) => void>();
+  const subscribers = new Set<Subscriber<State>>();
 
   function setState(value: State) {
     state = value;
@@ -326,7 +332,7 @@ function createPrimitiveStore<State>(initialState: State) {
     return [value, $set()];
   }
 
-  function $sub(subscriber: (value: State) => void) {
+  function $sub(subscriber: Subscriber<State>) {
     subscribers.add(subscriber);
     return () => {
       subscribers.delete(subscriber);
@@ -367,6 +373,70 @@ function createStore<State = undefined>(initialState?: State) {
 
   if (isDictionary(state)) return createCompositeStore(state);
   return createPrimitiveStore(state);
+}
+
+function createLocalStorageAdapter<State>(
+  key: string,
+  fallback?: State
+): [
+  getLocalStorageState: Initializer<State>,
+  setLocalStorageState: Subscriber<State>
+] {
+  const getLocalStorageState = (): State => {
+    const storedValue = localStorage.getItem(key);
+    if (storedValue) {
+      try {
+        return JSON.parse(storedValue) as State;
+      } catch (exception) {
+        console.warn("Failed to parse stored value from localStorage:", key);
+        console.error(exception);
+      }
+    }
+    return fallback as State;
+  };
+
+  const setLocalStorageState = (value: State) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (exception) {
+      console.warn("Failed to store value in localStorage:", value);
+      console.error(exception);
+    }
+  };
+
+  return [getLocalStorageState, setLocalStorageState];
+}
+
+function createSessionStorageAdapter<State>(
+  key: string,
+  fallback?: State
+): [
+  getSessionStorageState: Initializer<State>,
+  setSessionStorageState: Subscriber<State>
+] {
+  const getSessionStorageState = (): State => {
+    const storedValue = sessionStorage.getItem(key);
+    if (storedValue) {
+      try {
+        return JSON.parse(storedValue) as State;
+      } catch (exception) {
+        console.warn("Failed to parse stored value from sessionStorage:", key);
+        console.error(exception);
+      }
+    }
+    return fallback as State;
+  };
+
+  const setSessionStorageState = (value: State) => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (exception) {
+      console.warn("Failed to store value in sessionStorage:", value);
+      console.error(exception);
+    }
+  };
+
+  return [getSessionStorageState, setSessionStorageState];
 }
 
 type State = {
@@ -425,3 +495,13 @@ const unsubscribe = composite.$sub((value) => {
 const unsubscribeStreet = composite.$sub((value) => {
   console.log("Street changed");
 }, "location.address.street");
+
+type LocalState = {
+  theme: string;
+};
+
+const [getLocalStorageState, setLocalStorageState] =
+  createLocalStorageAdapter<LocalState>("state", { theme: "light" });
+
+const localStore = createStore(getLocalStorageState);
+localStore.$sub(setLocalStorageState);
