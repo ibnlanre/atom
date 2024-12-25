@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 
 type Dictionary = {
   readonly [k: string]: unknown;
@@ -75,12 +75,6 @@ type Split<
   ? Result
   : [...Result, T];
 
-type Test = ResolvePath<
-  //   ^?
-  { location: { address: { street: string } } },
-  "location.address.street"
->;
-
 /**
  * Check if the value is a dictionary.
  *
@@ -102,7 +96,7 @@ function resolveSegment<State extends Dictionary, Keys extends Segments<State>>(
 
 function resolvePath<
   State extends Dictionary,
-  Path extends Keys<State> = never
+  Path extends Paths<State> = never
 >(state: State, path: Path): ResolvePath<State, Path> {
   const segments = splitPath(path);
   return resolveSegment(state, segments);
@@ -136,16 +130,6 @@ function isResolvedPath<State extends Dictionary, Path extends Keys<State>>(
   return path !== undefined;
 }
 
-type SetStateAction<Value> = Value | ((prev: Value) => Value);
-
-type SetStatePathAction<
-  State extends Dictionary,
-  Path extends Paths<State>,
-  Value extends ResolvePath<State, Path>
-> = Value | ((prev: Value) => Value);
-
-type Dispatch<T> = (value: T) => void;
-
 function createCompositeStore<State extends Dictionary>(initialState: State) {
   let state = initialState;
 
@@ -153,14 +137,13 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     state = value;
   }
 
-  function setProperty<Path extends Keys<State>>(
+  function setProperty<Path extends Paths<State>>(
     value: ResolvePath<State, Path>,
     path?: Path
   ) {
     if (!path) return setState(value);
 
     const keys = splitPath(path);
-
     const snapshot = replicateState(state);
     const pivot = keys[keys.length - 1];
     const segments = keys.slice(0, -1);
@@ -177,17 +160,17 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
 
   function setStateAction<
     Value extends ResolvePath<State, Path>,
-    Path extends Keys<State>
+    Path extends Paths<State>
   >(value: Value, path: Path): void;
 
   function setStateAction<Value>(value: (prev: Value) => Value): void;
 
   function setStateAction<
     Value extends ResolvePath<State, Path>,
-    Path extends Keys<State>
+    Path extends Paths<State>
   >(value: (prev: Value) => Value, path: Path): void;
 
-  function setStateAction<Path extends Keys<State>>(value: any, path?: Path) {
+  function setStateAction<Path extends Paths<State>>(value: any, path?: Path) {
     if (path) {
       const current = resolvePath(state, path);
       if (isSetStateAction(value)) setProperty(value(current), path);
@@ -198,25 +181,24 @@ function createCompositeStore<State extends Dictionary>(initialState: State) {
     return setState(value);
   }
 
-  function $get<Path extends Keys<State>>(path?: Path) {
+  function $get<Path extends Paths<State>>(path?: Path) {
     if (path) return resolvePath(state, path);
     return state;
   }
 
-  function $set(): (value: State | ((prev: State) => State)) => void;
+  function $set(): Dispatch<SetStateAction<State>>;
 
-  function $set<Path extends Keys<State>>(
-    path: Path
-  ): <Value extends ResolvePath<State, Path>>(
-    value: Value | ((prev: Value) => Value)
-  ) => void;
+  function $set<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(path: Path): Dispatch<SetStateAction<Value>>;
 
-  function $set<Path extends Keys<State>>(path?: Path) {
+  function $set<
+    Path extends Paths<State>,
+    Value extends ResolvePath<State, Path>
+  >(path?: Path) {
     if (!path) return (value: State) => setStateAction(value);
-
-    return <Value extends ResolvePath<State, Path>>(
-      value: Value | ((prev: Value) => Value)
-    ) => setStateAction(value, path);
+    return (value: SetStateAction<Value>) => setStateAction(value, path);
   }
 
   function $use<
