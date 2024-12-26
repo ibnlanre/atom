@@ -156,8 +156,8 @@ interface CompositeStore<State extends Dictionary> {
 interface PrimitiveStore<State> {
   $get(): State;
   $set(): Dispatch<SetStateAction<State>>;
-  $use(): StateManager<State>;
   $sub(subscriber: Subscriber<State>): () => void;
+  $use(): StateManager<State>;
 }
 
 type Factory<State> = State | Initializer<State>;
@@ -375,6 +375,19 @@ function createStore<State = undefined>(initialState?: State) {
   return createPrimitiveStore(state);
 }
 
+interface ReportExceptionProps {
+  exception: unknown;
+  key: string;
+  value: unknown;
+  message: string;
+}
+
+function reportException(parameters: ReportExceptionProps) {
+  const { exception, key, value, message } = parameters;
+  console.warn(message, key, value);
+  console.error(exception);
+}
+
 function createLocalStorageAdapter<State>(
   key: string,
   fallback?: State
@@ -383,13 +396,17 @@ function createLocalStorageAdapter<State>(
   setLocalStorageState: Subscriber<State>
 ] {
   const getLocalStorageState = (): State => {
-    const storedValue = localStorage.getItem(key);
-    if (storedValue) {
+    const value = localStorage.getItem(key);
+    if (value) {
       try {
-        return JSON.parse(storedValue) as State;
+        return JSON.parse(value) as State;
       } catch (exception) {
-        console.warn("Failed to parse stored value from localStorage:", key);
-        console.error(exception);
+        reportException({
+          message: "Failed to parse stored value from localStorage:",
+          exception,
+          key,
+          value,
+        });
       }
     }
     return fallback as State;
@@ -399,8 +416,12 @@ function createLocalStorageAdapter<State>(
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (exception) {
-      console.warn("Failed to store value in localStorage:", value);
-      console.error(exception);
+      reportException({
+        message: "Failed to store value in localStorage:",
+        exception,
+        key,
+        value,
+      });
     }
   };
 
@@ -415,13 +436,17 @@ function createSessionStorageAdapter<State>(
   setSessionStorageState: Subscriber<State>
 ] {
   const getSessionStorageState = (): State => {
-    const storedValue = sessionStorage.getItem(key);
-    if (storedValue) {
+    const value = sessionStorage.getItem(key);
+    if (value) {
       try {
-        return JSON.parse(storedValue) as State;
+        return JSON.parse(value) as State;
       } catch (exception) {
-        console.warn("Failed to parse stored value from sessionStorage:", key);
-        console.error(exception);
+        reportException({
+          message: "Failed to parse stored value from sessionStorage:",
+          exception,
+          key,
+          value,
+        });
       }
     }
     return fallback as State;
@@ -431,8 +456,12 @@ function createSessionStorageAdapter<State>(
     try {
       sessionStorage.setItem(key, JSON.stringify(value));
     } catch (exception) {
-      console.warn("Failed to store value in sessionStorage:", value);
-      console.error(exception);
+      reportException({
+        message: "Failed to store value in sessionStorage:",
+        exception,
+        key,
+        value,
+      });
     }
   };
 
